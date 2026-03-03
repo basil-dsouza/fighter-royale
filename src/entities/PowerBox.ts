@@ -1,14 +1,17 @@
 import { CONFIG } from '../config/constants';
 import { Camera } from '../engine/camera';
 import { IsoUtils } from '../engine/iso';
+import { SpriteManager } from '../engine/sprite';
 import { GameObject } from './GameObject';
 
 export class PowerBox extends GameObject {
     public health: number = CONFIG.POWER_BOX_HEALTH;
     private color: string = '#f1c40f'; // Yellow/Gold
+    private sprite: SpriteManager;
 
     constructor(x: number, y: number) {
         super(x, y, 40, 40);
+        this.sprite = new SpriteManager('/assets/powerbox.png', 1);
     }
 
     update(_dt: number): void {
@@ -21,17 +24,22 @@ export class PowerBox extends GameObject {
     render(ctx: CanvasRenderingContext2D, _camera: Camera): void {
         const centerX = this.x + this.width / 2;
         const centerY = this.y + this.height / 2;
+        const { x: isoX, y: isoY } = IsoUtils.cartToIso(centerX, centerY);
 
-        IsoUtils.drawIsoBlock(
-            ctx,
-            centerX,
-            centerY,
-            this.width / 2,
-            this.color,
-            this.darken(this.color, 0.2),
-            this.darken(this.color, 0.4),
-            40 // Box height
-        );
+        if (this.sprite.isLoaded) {
+            this.sprite.render(ctx, isoX, isoY, 60, 60);
+        } else {
+            IsoUtils.drawIsoBlock(
+                ctx,
+                centerX,
+                centerY,
+                this.width / 2,
+                this.color,
+                this.darken(this.color, 0.2),
+                this.darken(this.color, 0.4),
+                40 // Box height
+            );
+        }
 
         // Draw health bar
         this.drawHealthBar(ctx, centerX, centerY);

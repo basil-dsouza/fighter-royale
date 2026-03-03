@@ -1,6 +1,7 @@
 import { CONFIG } from '../config/constants';
 import { Camera } from '../engine/camera';
 import { IsoUtils } from '../engine/iso';
+import { SpriteManager } from '../engine/sprite';
 import { GameObject } from '../entities/GameObject';
 import { Wall } from '../entities/Wall';
 import { Water } from '../entities/Water';
@@ -9,10 +10,14 @@ import { Bush } from '../entities/Bush';
 export class MapManager {
     private width: number;
     private height: number;
+    private floorSprites: SpriteManager[] = [];
 
     constructor(width: number, height: number) {
         this.width = width;
         this.height = height;
+        this.floorSprites.push(new SpriteManager('/assets/land_1.png', 1));
+        this.floorSprites.push(new SpriteManager('/assets/land_2.png', 1));
+        this.floorSprites.push(new SpriteManager('/assets/land_3.png', 1));
     }
 
     // Draw the floor tiles
@@ -48,31 +53,67 @@ export class MapManager {
                 const pixelX = x * CONFIG.BLOCK_SIZE;
                 const pixelY = y * CONFIG.BLOCK_SIZE;
 
-                // Checkerboard pattern for floor depth perception
-                const color = (x + y) % 2 === 0 ? '#34495e' : '#2c3e50';
+                const logicCenterX = pixelX + CONFIG.BLOCK_SIZE / 2;
+                const logicCenterY = pixelY + CONFIG.BLOCK_SIZE / 2;
+                const { x: isoX, y: isoY } = IsoUtils.cartToIso(logicCenterX, logicCenterY);
 
-                IsoUtils.drawIsoFloor(
-                    ctx,
-                    pixelX,
-                    pixelY,
-                    CONFIG.BLOCK_SIZE,
-                    color
-                );
+                // Deterministic variation picking to break up monotony
+                const variationIndex = (x * 31 + y * 17) % this.floorSprites.length;
+                const sprite = this.floorSprites[variationIndex];
+
+                if (sprite?.isLoaded) {
+                    ctx.save();
+                    IsoUtils.clipIsoFloor(ctx, pixelX, pixelY, CONFIG.BLOCK_SIZE, 2);
+                    sprite.render(ctx, isoX, isoY + 32, 132, 68);
+                    ctx.restore();
+                } else {
+                    // Checkerboard pattern for floor depth perception
+                    const color = (x + y) % 2 === 0 ? '#34495e' : '#2c3e50';
+
+                    IsoUtils.drawIsoFloor(
+                        ctx,
+                        pixelX,
+                        pixelY,
+                        CONFIG.BLOCK_SIZE,
+                        color
+                    );
+                }
             }
         }
     }
 
     generateMap(): GameObject[] {
         const obs: GameObject[] = [];
+        const occupied = new Set<string>();
 
         // 1. Edges
         for (let x = 0; x < this.width; x++) {
             obs.push(new Wall(x * CONFIG.BLOCK_SIZE, 0));
             obs.push(new Wall(x * CONFIG.BLOCK_SIZE, (this.height - 1) * CONFIG.BLOCK_SIZE));
+            occupied.add(`${x},0`);
+            occupied.add(`${x},${this.height - 1}`);
         }
         for (let y = 1; y < this.height - 1; y++) {
             obs.push(new Wall(0, y * CONFIG.BLOCK_SIZE));
             obs.push(new Wall((this.width - 1) * CONFIG.BLOCK_SIZE, y * CONFIG.BLOCK_SIZE));
+            occupied.add(`0,${y}`);
+            occupied.add(`${this.width - 1},${y}`);
+        }
+
+        // Reserve spawn corners
+        const corners = [
+            { x: 2, y: 2 },
+            { x: this.width - 3, y: this.height - 3 },
+            { x: 2, y: this.height - 3 },
+            { x: this.width - 3, y: 2 }
+        ];
+
+        for (const c of corners) {
+            for (let ox = c.x - 3; ox <= c.x + 3; ox++) {
+                for (let oy = c.y - 3; oy <= c.y + 3; oy++) {
+                    occupied.add(`${ox},${oy}`);
+                }
+            }
         }
 
         // 2. Random Obstacles
@@ -82,20 +123,16 @@ export class MapManager {
             const cx = Math.floor(Math.random() * (this.width - 10)) + 5;
             const cy = Math.floor(Math.random() * (this.height - 10)) + 5;
 
-            // Avoid spawning on top of the 4 corners (player spawns)
-            const isNearSpawn = (Math.abs(cx - 2) < 4 && Math.abs(cy - 2) < 4) ||
-                (Math.abs(cx - (this.width - 3)) < 4 && Math.abs(cy - (this.height - 3)) < 4) ||
-                (Math.abs(cx - 2) < 4 && Math.abs(cy - (this.height - 3)) < 4) ||
-                (Math.abs(cx - (this.width - 3)) < 4 && Math.abs(cy - 2) < 4);
-
-            if (isNearSpawn) continue;
-
             const type = Math.random();
             const clusterSize = Math.floor(Math.random() * 4) + 2;
 
             for (let j = 0; j < clusterSize; j++) {
                 const ox = cx + Math.floor(Math.random() * 3) - 1;
                 const oy = cy + Math.floor(Math.random() * 3) - 1;
+
+                const key = `${ox},${oy}`;
+                if (occupied.has(key)) continue;
+                occupied.add(key);
 
                 const blockX = ox * CONFIG.BLOCK_SIZE;
                 const blockY = oy * CONFIG.BLOCK_SIZE;

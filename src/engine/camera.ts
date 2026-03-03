@@ -11,7 +11,7 @@ export class Camera {
     public screenY: number = 0;
 
     // Follow target (uses logical Cartesian coordinates)
-    private target: { x: number; y: number } | null = null;
+    public target: { x: number; y: number } | null = null;
 
     constructor(width: number, height: number, screenX: number, screenY: number) {
         this.width = width;

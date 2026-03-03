@@ -28,10 +28,10 @@ export const CONFIG = {
   SUPER_DAMAGE: 500,
   SUPER_DURATION_SECS: 15,
 
-  GADGET_COOLDOWN_SECS: 11,
-  TURRET_HEALTH: 1500,
-  TURRET_DAMAGE: 450,
-  TURRET_FIRE_RATE_SECS: 1.5,
+  GADGETS: {
+    TURRET: { health: 1500, damage: 450, cooldownSecs: 11, fireRateSecs: 1.5 },
+    PROXIMITY_MINE: { health: 100, damage: 1500, cooldownSecs: 12, triggerRadiusBlocks: 2, explosiveRadiusBlocks: 3 }
+  },
 
   POWER_BOX_HEALTH: 3000,
   POWER_BUFF_PERCENT: 0.15,

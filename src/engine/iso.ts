@@ -41,6 +41,42 @@ export class IsoUtils {
         });
     }
 
+    static clipIsoFloor(ctx: CanvasRenderingContext2D, logicX: number, logicY: number, size: number, padding: number = 0) {
+        ctx.beginPath();
+        const p1 = this.cartToIso(logicX - padding, logicY - padding);
+        const p2 = this.cartToIso(logicX + size + padding, logicY - padding);
+        const p3 = this.cartToIso(logicX + size + padding, logicY + size + padding);
+        const p4 = this.cartToIso(logicX - padding, logicY + size + padding);
+
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.lineTo(p4.x, p4.y);
+        ctx.closePath();
+        ctx.clip();
+    }
+
+    static clipRoundedIsoFloor(ctx: CanvasRenderingContext2D, logicX: number, logicY: number, size: number, radius: number) {
+        const p1 = this.cartToIso(logicX, logicY);
+        const p2 = this.cartToIso(logicX + size, logicY);
+        const p3 = this.cartToIso(logicX + size, logicY + size);
+        const p4 = this.cartToIso(logicX, logicY + size);
+
+        ctx.beginPath();
+        // Start halfway down the left edge
+        const startX = (p1.x + p4.x) / 2;
+        const startY = (p1.y + p4.y) / 2;
+        ctx.moveTo(startX, startY);
+
+        ctx.arcTo(p1.x, p1.y, p2.x, p2.y, radius);
+        ctx.arcTo(p2.x, p2.y, p3.x, p3.y, radius);
+        ctx.arcTo(p3.x, p3.y, p4.x, p4.y, radius);
+        ctx.arcTo(p4.x, p4.y, p1.x, p1.y, radius);
+
+        ctx.closePath();
+        ctx.clip();
+    }
+
     // Utility to draw an isometric block at given logical coordinates
     static drawIsoBlock(ctx: CanvasRenderingContext2D, logicX: number, logicY: number, size: number, colorTop: string, colorLeft: string, colorRight: string, heightAdjust = 0) {
 

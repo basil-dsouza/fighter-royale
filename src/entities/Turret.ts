@@ -1,24 +1,29 @@
 import { CONFIG } from '../config/constants';
 import { Camera } from '../engine/camera';
 import { IsoUtils } from '../engine/iso';
+import { SpriteManager } from '../engine/sprite';
 import { GameObject } from './GameObject';
 import { Player } from './Player';
 
 export class Turret extends GameObject {
     public ownerId: string;
-    public health: number = CONFIG.TURRET_HEALTH;
+    public teamId: number;
+    public health: number = CONFIG.GADGETS.TURRET.health;
+    public isDead: boolean = false;
+    public color: string;
 
     private fireRateTimer: number = 0;
     private target: Player | null = null;
-    private onFire: (turret: Turret, targetX: number, targetY: number) => void;
+    private onFire: (turret: Turret, x: number, y: number) => void;
+    private sprite: SpriteManager;
 
-    // Visuals
-    private color: string = '#888888';
-
-    constructor(x: number, y: number, ownerId: string, onFire: (turret: Turret, targetX: number, targetY: number) => void) {
-        super(x, y, 30, 30); // Turret is slightly smaller than a player
+    constructor(x: number, y: number, ownerId: string, teamId: number, color: string, onFire: (turret: Turret, x: number, y: number) => void) {
+        super(x, y, CONFIG.BLOCK_SIZE * 0.8, CONFIG.BLOCK_SIZE * 0.8);
         this.ownerId = ownerId;
+        this.teamId = teamId;
+        this.color = color;
         this.onFire = onFire;
+        this.sprite = new SpriteManager('/assets/turret.png', 1);
     }
 
     update(dt: number, players?: Player[]): void {
@@ -35,8 +40,8 @@ export class Turret extends GameObject {
             this.target = null;
 
             for (const p of players) {
-                // Don't target the owner or dead players
-                if (p.id === this.ownerId || p.isDead) continue;
+                // Don't target the owner, dead players, or teammates
+                if (p.isDead || p.teamId === this.teamId) continue;
 
                 const dist = Math.hypot(p.x - this.x, p.y - this.y);
                 // Turrets have a reasonable range, e.g. 10 blocks
@@ -49,32 +54,52 @@ export class Turret extends GameObject {
 
         // Fire if ready and we have a target
         if (this.fireRateTimer <= 0 && this.target) {
-            this.fireRateTimer = CONFIG.TURRET_FIRE_RATE_SECS;
-            // Target the center of the player
             this.onFire(this, this.target.x + this.target.width / 2, this.target.y + this.target.height / 2);
+            this.fireRateTimer = CONFIG.GADGETS.TURRET.fireRateSecs;
         }
     }
 
     render(ctx: CanvasRenderingContext2D, _camera: Camera): void {
         const centerX = this.x + this.width / 2;
         const centerY = this.y + this.height / 2;
+        const { x: isoX, y: isoY } = IsoUtils.cartToIso(centerX, centerY);
 
-        IsoUtils.drawIsoBlock(
-            ctx,
-            centerX,
-            centerY,
-            this.width / 2,
-            this.color,
-            this.darken(this.color, 0.2),
-            this.darken(this.color, 0.4),
-            20 // Shorter than player
-        );
+        if (this.sprite.isLoaded) {
+            ctx.save();
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.ellipse(isoX, isoY, 25, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
 
-        // Health bar
+            this.sprite.render(ctx, isoX, isoY, 60, 80);
+        } else {
+            // Base of the turret maps to team/owner color
+            ctx.fillStyle = this.color;
+            IsoUtils.drawIsoBlock(
+                ctx,
+                centerX,
+                centerY,
+                this.width / 2,
+                this.color,
+                this.darken(this.color, 0.2),
+                this.darken(this.color, 0.4),
+                25 // Turret height
+            );
+
+            // A plus sign or glowing top
+            ctx.fillStyle = '#f1c40f';
+            ctx.beginPath();
+            ctx.arc(isoX, isoY - 25, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         this.drawHealthBar(ctx, centerX, centerY);
     }
 
     private drawHealthBar(ctx: CanvasRenderingContext2D, logicX: number, logicY: number) {
+        ctx.save();
         const { x, y } = IsoUtils.cartToIso(logicX, logicY);
 
         const barWidth = 30;
@@ -84,12 +109,19 @@ export class Turret extends GameObject {
         const drawX = x - barWidth / 2;
         const drawY = y - floatOffsetY;
 
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = '#000'; // Background for the bar
         ctx.fillRect(drawX - 1, drawY - 1, barWidth + 2, barHeight + 2);
 
-        const healthPercent = Math.max(0, this.health / CONFIG.TURRET_HEALTH);
-        ctx.fillStyle = '#2ecc71';
+        const healthPercent = Math.max(0, this.health / CONFIG.GADGETS.TURRET.health);
+        ctx.fillStyle = '#2ecc71'; // Actual health bar color
         ctx.fillRect(drawX, drawY, barWidth * healthPercent, barHeight);
+
+        // Health text
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px "Trebuchet MS", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`HP: ${Math.floor(this.health)} / ${CONFIG.GADGETS.TURRET.health}`, x, y - floatOffsetY - 10); // Above the bar
+        ctx.restore();
     }
 
     private darken(color: string, amount: number): string {

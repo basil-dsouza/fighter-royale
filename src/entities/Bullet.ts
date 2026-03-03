@@ -11,6 +11,7 @@ export interface BulletOptions {
     speed: number;
     damage: number;
     ownerId: string;
+    ownerTeamId: number;
     color: string;
     stunDur?: number;
     range: number; // Max distance in logic pixels
@@ -18,6 +19,7 @@ export interface BulletOptions {
 
 export class Bullet extends GameObject {
     public ownerId: string;
+    public ownerTeamId: number;
     public damage: number;
     public stunDur: number;
     public color: string;
@@ -32,6 +34,7 @@ export class Bullet extends GameObject {
         // Bullets are small, e.g. 10x10 logical size
         super(options.x - 5, options.y - 5, 10, 10);
         this.ownerId = options.ownerId;
+        this.ownerTeamId = options.ownerTeamId;
         this.damage = options.damage;
         this.stunDur = options.stunDur || 0;
         this.color = options.color;

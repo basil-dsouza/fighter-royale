@@ -6,18 +6,24 @@ export interface PlayerInput {
     fire: boolean;
     superBtn: boolean;
     gadgetBtn: boolean;
+    gadgetPrev: boolean;
+    gadgetNext: boolean;
     connected: boolean;
 }
+
+import { TouchInputManager } from './TouchInputManager';
 
 export class InputManager {
     private static instance: InputManager;
     private inputStates: PlayerInput[] = [];
+    public isPhoneMode: boolean = false;
 
     private constructor() {
         for (let i = 0; i < 4; i++) {
             this.inputStates.push({
                 moveX: 0, moveY: 0, aimX: 0, aimY: 0,
                 fire: false, superBtn: false, gadgetBtn: false,
+                gadgetPrev: false, gadgetNext: false,
                 connected: false
             });
         }
@@ -70,18 +76,43 @@ export class InputManager {
                 state.fire = pad.buttons[6]?.pressed || pad.buttons[7]?.value > 0.5; // Accept either trigger for ease
                 state.gadgetBtn = pad.buttons[2]?.pressed;
                 state.superBtn = pad.buttons[1]?.pressed;
+                state.gadgetPrev = pad.buttons[4]?.pressed;
+                state.gadgetNext = pad.buttons[5]?.pressed;
 
             } else {
                 // Reset if disconnected
                 state.connected = false;
                 state.moveX = 0; state.moveY = 0; state.aimX = 0; state.aimY = 0;
                 state.fire = false; state.gadgetBtn = false; state.superBtn = false;
+                state.gadgetPrev = false; state.gadgetNext = false;
             }
         }
     }
 
     getInputState(playerIndex: number): PlayerInput {
-        return this.inputStates[playerIndex];
+        const state = { ...this.inputStates[playerIndex] };
+
+        if (this.isPhoneMode && playerIndex === 0) {
+            try {
+                const touchInput = TouchInputManager.getInstance().getTouchInput();
+
+                // Override Controller state with phone state if connected
+                if (touchInput.connected) {
+                    state.moveX = touchInput.moveX || state.moveX;
+                    state.moveY = touchInput.moveY || state.moveY;
+                    state.aimX = touchInput.aimX || state.aimX;
+                    state.aimY = touchInput.aimY || state.aimY;
+                    state.fire = touchInput.fire || state.fire;
+                    state.superBtn = touchInput.superBtn || state.superBtn;
+                    state.gadgetBtn = touchInput.gadgetBtn || state.gadgetBtn;
+                    state.connected = true;
+                }
+            } catch (e) {
+                // Not initialized
+            }
+        }
+
+        return state;
     }
 
     // Utility to check how many controllers are connected for the lobby

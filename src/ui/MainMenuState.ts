@@ -4,13 +4,54 @@ import { InputManager } from '../engine/input';
 
 export class MainMenuState implements GameState {
     private _game: Game;
+    private handleClickRef: (e: MouseEvent | TouchEvent) => void;
 
     constructor(game: Game) {
         this._game = game;
+        this.handleClickRef = this.handleScreenClick.bind(this);
     }
 
     enter(): void {
         console.log("Entered Main Menu State");
+        this._game.canvas.addEventListener('click', this.handleClickRef);
+        this._game.canvas.addEventListener('touchstart', this.handleClickRef, { passive: false });
+    }
+
+    private handleScreenClick(e: MouseEvent | TouchEvent) {
+        if (e.type === 'touchstart') e.preventDefault();
+
+        let clientX = 0, clientY = 0;
+        if (e instanceof MouseEvent) {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        } else if (e.type === 'touchstart' && (e as TouchEvent).touches.length > 0) {
+            clientX = (e as TouchEvent).touches[0].clientX;
+            clientY = (e as TouchEvent).touches[0].clientY;
+        }
+
+        const rect = this._game.canvas.getBoundingClientRect();
+        const px = clientX - rect.left;
+        const py = clientY - rect.top;
+
+        const cw = this._game.canvas.width;
+        const ch = this._game.canvas.height;
+
+        // Button roughly at: cx=cw/2, cy=ch/2 + 120, w=300, h=50
+        // btnTopLeftX = cw/2 - 150, btnTopLeftY = ch/2 + 120 - 25
+        const bx = cw / 2 - 150;
+        const by = ch / 2 + 120 - 25;
+
+        if (px >= bx && px <= bx + 300 && py >= by && py <= by + 50) {
+            // Trigger Phone Mode
+            this._game.isPhoneMode = true;
+            this._game.numPlayers = 1;
+            this._game.numBots = 3;
+            InputManager.getInstance().isPhoneMode = true;
+
+            import('./WeaponSelectState').then(module => {
+                this._game.changeState(new module.WeaponSelectState(this._game));
+            });
+        }
     }
 
     update(_dt: number): void {
@@ -58,9 +99,21 @@ export class MainMenuState implements GameState {
         } else {
             ctx.fillText('Press any button on an Xbox Controller to connect...', cw / 2, ch / 2 + 50);
         }
+
+        // Phone Mode Button
+        const by = ch / 2 + 120;
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.roundRect(cw / 2 - 150, by - 25, 300, 50, 10);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px "Trebuchet MS", sans-serif';
+        ctx.fillText('Tap for Phone Mode (1v3)', cw / 2, by);
     }
 
     exit(): void {
         console.log("Exited Main Menu State");
+        this._game.canvas.removeEventListener('click', this.handleClickRef);
+        this._game.canvas.removeEventListener('touchstart', this.handleClickRef);
     }
 }

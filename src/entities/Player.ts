@@ -2,10 +2,14 @@ import { CONFIG } from '../config/constants';
 import { Camera } from '../engine/camera';
 import { InputManager } from '../engine/input';
 import { IsoUtils } from '../engine/iso';
+import { SpriteManager } from '../engine/sprite';
 import { GameObject } from './GameObject';
 
 export class Player extends GameObject {
     public playerIndex: number;
+    public isBot: boolean = false;
+    public teamId: number = -1;
+    public isHidden: boolean = false;
     public health: number = CONFIG.PLAYER_MAX_HEALTH;
 
     // Visuals
@@ -24,11 +28,13 @@ export class Player extends GameObject {
     public timeSinceLastCombat: number = 0;
 
     public weaponType: keyof typeof CONFIG.WEAPONS = 'SPREAD';
+    public gadgetType: keyof typeof CONFIG.GADGETS = 'TURRET';
     private fireCooldown: number = 0;
 
     // Actions
     private onFire: (player: Player, aimX: number, aimY: number) => void;
     private onGadget: (player: Player) => void;
+    private sprite: SpriteManager;
 
     constructor(x: number, y: number, playerIndex: number, onFire: (p: Player, axeX: number, axY: number) => void, onGadget: (p: Player) => void) {
         super(x, y, 40, 40); // 40 logical size inside a 64 block
@@ -36,12 +42,13 @@ export class Player extends GameObject {
         this.color = this.colors[playerIndex % this.colors.length];
         this.onFire = onFire;
         this.onGadget = onGadget;
+        this.sprite = new SpriteManager('/assets/player.png', 1);
     }
 
     update(dt: number, entities?: GameObject[]): void {
         const input = InputManager.getInstance().getInputState(this.playerIndex);
 
-        if (!input.connected) return;
+        if (!input.connected && !this.isBot) return;
 
         // Calculate movement vector
         const speed = CONFIG.PLAYER_SPEED * CONFIG.BLOCK_SIZE * dt;
@@ -110,13 +117,42 @@ export class Player extends GameObject {
             this.fireCooldown -= dt;
         }
 
+        // Stealth check
+        this.isHidden = false;
+        if (this.timeSinceLastCombat > 1000 && entities) {
+            for (const e of entities) {
+                if (e.constructor.name === 'Bush' && this.collidesWith(e)) {
+                    this.isHidden = true;
+                    break;
+                }
+            }
+        }
+
+        const isMoving = inputMag > 0.1;
+        this.sprite.update(dt, isMoving);
+
         // --- Actions ---
         const aimMag = Math.sqrt(input.aimX * input.aimX + input.aimY * input.aimY);
 
         // Firing: Need either standard ammo or super active, and cooldown ready, and input fire pressed
-        // Plus we need aiming direction (right stick) to know where to shoot
-        if (input.fire && this.fireCooldown <= 0 && aimMag > 0.1) {
-            if (this.superActive || this.ammo > 0) {
+        if (input.fire && this.fireCooldown <= 0) {
+            let aimIso: { x: number; y: number } | null = null;
+
+            if (aimMag > 0.1) {
+                aimIso = IsoUtils.screenToIsoVec(input.aimX, input.aimY);
+            } else {
+                const closest = this.getClosestEnemy(entities);
+                if (closest) {
+                    const dx = (closest.x + closest.width / 2) - (this.x + this.width / 2);
+                    const dy = (closest.y + closest.height / 2) - (this.y + this.height / 2);
+                    const mag = Math.hypot(dx, dy);
+                    if (mag > 0) {
+                        aimIso = { x: dx / mag, y: dy / mag };
+                    }
+                }
+            }
+
+            if (aimIso && (this.superActive || this.ammo > 0)) {
 
                 if (!this.superActive) {
                     this.ammo--;
@@ -130,8 +166,6 @@ export class Player extends GameObject {
                 }
 
                 this.timeSinceLastCombat = 0;
-                // Convert screen-aim input to world-aim vector
-                const aimIso = IsoUtils.screenToIsoVec(input.aimX, input.aimY);
                 this.onFire(this, aimIso.x, aimIso.y);
             }
         }
@@ -145,8 +179,11 @@ export class Player extends GameObject {
 
         // Gadget Deployment
         if (input.gadgetBtn && this.gadgetCooldownTimer <= 0) {
-            this.gadgetCooldownTimer = CONFIG.GADGET_COOLDOWN_SECS;
-            this.onGadget(this);
+            if (this.onGadget) {
+                this.onGadget(this);
+                this.gadgetCooldownTimer = CONFIG.GADGETS[this.gadgetType].cooldownSecs;
+                this.timeSinceLastCombat = 0;
+            }
         }
     }
 
@@ -158,21 +195,33 @@ export class Player extends GameObject {
 
         this.drawAimIndicators(ctx, centerX, centerY);
 
-        // Draw a "character" as a tall block or cylinder
-        // We can use IsoUtils.drawIsoBlock to render a box to represent the player
+        const { x: isoX, y: isoY } = IsoUtils.cartToIso(centerX, centerY);
 
-        // Top color is main, sides are darkened
-        ctx.fillStyle = this.color;
-        IsoUtils.drawIsoBlock(
-            ctx,
-            centerX,
-            centerY,
-            this.width / 2, // 'size' for isometric draw is half-width
-            this.color,     // top
-            this.darken(this.color, 0.2), // left
-            this.darken(this.color, 0.4), // right
-            this.height // height adjust (makes the block stand up TALL)
-        );
+        if (this.sprite.isLoaded) {
+            // Give players a colored circle underneath them to show team/player color
+            ctx.save();
+            ctx.fillStyle = this.color;
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.ellipse(isoX, isoY, 30, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            this.sprite.render(ctx, isoX, isoY, 128, 128);
+        } else {
+            // Top color is main, sides are darkened
+            ctx.fillStyle = this.color;
+            IsoUtils.drawIsoBlock(
+                ctx,
+                centerX,
+                centerY,
+                this.width / 2, // 'size' for isometric draw is half-width
+                this.color,     // top
+                this.darken(this.color, 0.2), // left
+                this.darken(this.color, 0.4), // right
+                this.height // height adjust (makes the block stand up TALL)
+            );
+        }
 
         // Draw health bar and ammo floating above
         this.drawHealthBar(ctx, centerX, centerY);
@@ -180,6 +229,7 @@ export class Player extends GameObject {
     }
 
     private drawAimIndicators(ctx: CanvasRenderingContext2D, logicX: number, logicY: number) {
+        if (this.isBot) return;
         const input = InputManager.getInstance().getInputState(this.playerIndex);
         if (!input.connected) return;
 
@@ -264,6 +314,25 @@ export class Player extends GameObject {
             }
         }
         return false;
+    }
+
+    private getClosestEnemy(entities?: GameObject[]): Player | null {
+        if (!entities) return null;
+        let closest: Player | null = null;
+        let minDist = Infinity;
+        for (const e of entities) {
+            if (e instanceof Player && !e.isDead && e !== this) {
+                if (this.teamId !== -1 && e.teamId === this.teamId) continue;
+                if (e.isHidden) continue;
+
+                const dist = Math.hypot(e.x - this.x, e.y - this.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = e;
+                }
+            }
+        }
+        return closest;
     }
 
     private drawAmmoBar(ctx: CanvasRenderingContext2D, logicX: number, logicY: number) {

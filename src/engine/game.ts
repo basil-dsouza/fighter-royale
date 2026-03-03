@@ -1,5 +1,6 @@
 import type { GameState } from './core';
 import { InputManager } from './input';
+import { TouchInputManager } from './TouchInputManager';
 
 export class Game {
     public canvas: HTMLCanvasElement;
@@ -13,7 +14,13 @@ export class Game {
 
     // Shared state
     public numPlayers: number = 2; // Default to 2, changeable in menu
+    public numBots: number = 0;
+    public gameMode: 'FFA' | 'TEAM' = 'FFA';
+    public botStyle: 'NORMAL' | 'AGGRESSIVE' | 'DEFENSIVE' | 'RANDOM' = 'NORMAL';
     public playerWeapons: string[] = ['SPREAD', 'SPREAD', 'SPREAD', 'SPREAD'];
+    public playerGadgets: string[] = ['TURRET', 'TURRET', 'TURRET', 'TURRET'];
+    public playerTeams: number[] = [0, 1, 0, 1]; // 0=Red, 1=Blue, etc.
+    public isPhoneMode: boolean = false;
 
     constructor(canvasId: string) {
         const el = document.getElementById(canvasId);
@@ -30,6 +37,9 @@ export class Game {
         // Resize handler
         window.addEventListener('resize', this.onResize.bind(this));
         this.onResize();
+
+        // Initialize touch manager
+        TouchInputManager.initialize(this.canvas);
     }
 
     private onResize() {
