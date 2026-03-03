@@ -30,6 +30,7 @@ export const CONFIG = {
 
   GADGETS: {
     TURRET: { health: 1500, damage: 450, cooldownSecs: 11, fireRateSecs: 1.5 },
+    HEAL_STATION: { health: 1000, cooldownSecs: 15, tickRateSecs: 1, radiusBlocks: 4, healAmount: 200 },
     PROXIMITY_MINE: { health: 100, damage: 1500, cooldownSecs: 12, triggerRadiusBlocks: 2, explosiveRadiusBlocks: 3 }
   },
 
