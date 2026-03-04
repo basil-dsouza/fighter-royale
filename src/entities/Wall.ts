@@ -24,7 +24,7 @@ export class Wall extends GameObject {
         if (this.sprite?.isLoaded) {
             // A square Minecraft-style block isometric tile is roughly W:128, H:128.
             // But we need to offset it to stand up precisely on the grid.
-            this.sprite.render(ctx, isoX, isoY + 64, 128, 128);
+            this.sprite.render(ctx, isoX, isoY + 32, 128, 128);
         } else {
             IsoUtils.drawIsoBlock(
                 ctx,

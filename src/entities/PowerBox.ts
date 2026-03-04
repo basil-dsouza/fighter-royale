@@ -27,7 +27,7 @@ export class PowerBox extends GameObject {
         const { x: isoX, y: isoY } = IsoUtils.cartToIso(centerX, centerY);
 
         if (this.sprite.isLoaded) {
-            this.sprite.render(ctx, isoX, isoY, 60, 60);
+            this.sprite.render(ctx, isoX, isoY + 15, 90, 90);
         } else {
             IsoUtils.drawIsoBlock(
                 ctx,

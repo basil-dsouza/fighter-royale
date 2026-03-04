@@ -23,20 +23,20 @@ export class HealStation extends GameObject {
         this.sprite = new SpriteManager('/assets/heal_station.png', 1);
     }
 
-    update(dt: number, players: Player[]): void {
+    update(dt: number, entities: GameObject[]): void {
         this.healTimer -= dt;
 
         if (this.healTimer <= 0) {
             this.healTimer = CONFIG.GADGETS.HEAL_STATION.tickRateSecs;
-            this.healRadius(players);
+            this.healRadius(entities);
         }
     }
 
-    private healRadius(players: Player[]) {
+    private healRadius(entities: GameObject[]) {
         const radius = CONFIG.GADGETS.HEAL_STATION.radiusBlocks * CONFIG.BLOCK_SIZE;
 
-        for (const p of players) {
-            if (p.isDead) continue;
+        for (const p of entities) {
+            if (!(p instanceof Player) || p.isDead) continue;
 
             const isAlly = (this.teamId !== -1 && p.teamId === this.teamId) || p.id === this.ownerId;
             if (isAlly) {
@@ -64,7 +64,7 @@ export class HealStation extends GameObject {
         ctx.fill();
 
         if (this.sprite.isLoaded) {
-            this.sprite.render(ctx, x, y, 60, 100);
+            this.sprite.render(ctx, x, y - 10, 120, 160);
         } else {
             // Base of the heal station
             ctx.fillStyle = this.color;
@@ -87,6 +87,7 @@ export class HealStation extends GameObject {
         }
 
         this.drawHealthBar(ctx, centerX, centerY);
+        ctx.restore();
     }
 
     private drawHealthBar(ctx: CanvasRenderingContext2D, logicX: number, logicY: number) {

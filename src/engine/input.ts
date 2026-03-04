@@ -100,11 +100,11 @@ export class InputManager {
                 if (touchInput.connected) {
                     state.moveX = touchInput.moveX || state.moveX;
                     state.moveY = touchInput.moveY || state.moveY;
-                    state.aimX = touchInput.aimX || state.aimX;
-                    state.aimY = touchInput.aimY || state.aimY;
-                    state.fire = touchInput.fire || state.fire;
-                    state.superBtn = touchInput.superBtn || state.superBtn;
-                    state.gadgetBtn = touchInput.gadgetBtn || state.gadgetBtn;
+                    state.aimX = touchInput.aimX || 0;
+                    state.aimY = touchInput.aimY || 0;
+                    state.fire = touchInput.fire || false;
+                    state.superBtn = touchInput.superBtn || false;
+                    state.gadgetBtn = touchInput.gadgetBtn || false;
                     state.connected = true;
                 }
             } catch (e) {
@@ -113,6 +113,10 @@ export class InputManager {
         }
 
         return state;
+    }
+
+    setBotInput(playerIndex: number, fakeState: Partial<PlayerInput>): void {
+        this.inputStates[playerIndex] = { ...this.inputStates[playerIndex], ...fakeState };
     }
 
     // Utility to check how many controllers are connected for the lobby

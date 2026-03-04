@@ -13,7 +13,7 @@ export class Turret extends GameObject {
     public color: string;
 
     private fireRateTimer: number = 0;
-    private target: Player | null = null;
+    private target: GameObject | null = null;
     private onFire: (turret: Turret, x: number, y: number) => void;
     private sprite: SpriteManager;
 
@@ -26,7 +26,7 @@ export class Turret extends GameObject {
         this.sprite = new SpriteManager('/assets/turret.png', 1);
     }
 
-    update(dt: number, players?: Player[]): void {
+    update(dt: number, entities?: GameObject[]): void {
         if (this.health <= 0) {
             this.isDead = true;
             return;
@@ -34,22 +34,40 @@ export class Turret extends GameObject {
 
         this.fireRateTimer -= dt;
 
-        // Auto-aim logic if players are provided
-        if (players) {
-            let closestDist = Infinity;
-            this.target = null;
+        // Auto-aim logic if entities are provided
+        if (entities) {
+            let closestEnemy: GameObject | null = null;
+            let closestEnemyDist = Infinity;
 
-            for (const p of players) {
-                // Don't target the owner, dead players, or teammates
-                if (p.isDead || p.teamId === this.teamId) continue;
+            let closestBox: GameObject | null = null;
+            let closestBoxDist = Infinity;
 
-                const dist = Math.hypot(p.x - this.x, p.y - this.y);
-                // Turrets have a reasonable range, e.g. 10 blocks
-                if (dist < closestDist && dist < 10 * CONFIG.BLOCK_SIZE) {
-                    closestDist = dist;
-                    this.target = p;
+            for (const e of entities) {
+                if (e === this || e.isDead || (e as any).isSolid) continue;
+
+                const dist = Math.hypot(e.x - this.x, e.y - this.y);
+                if (dist >= 10 * CONFIG.BLOCK_SIZE) continue;
+
+                let isEnemy = false;
+                if (e instanceof Player) {
+                    if (this.teamId !== -1 && (e.teamId === this.teamId || e.isHidden)) continue;
+                    isEnemy = true;
+                } else if (e.constructor.name === 'Turret' || e.constructor.name === 'HealStation' || e.constructor.name === 'ProximityMine') {
+                    if (this.teamId !== -1 && (e as any).teamId === this.teamId) continue;
+                    if ((e as any).ownerId === this.ownerId) continue;
+                    isEnemy = true;
+                }
+
+                if (isEnemy && dist < closestEnemyDist) {
+                    closestEnemyDist = dist;
+                    closestEnemy = e;
+                } else if (e.constructor.name === 'PowerBox' && dist < closestBoxDist) {
+                    closestBoxDist = dist;
+                    closestBox = e;
                 }
             }
+
+            this.target = closestEnemy || closestBox;
         }
 
         // Fire if ready and we have a target
@@ -73,7 +91,20 @@ export class Turret extends GameObject {
             ctx.fill();
             ctx.restore();
 
-            this.sprite.render(ctx, isoX, isoY, 60, 80);
+            let flipX = 1;
+            if (this.target) {
+                const dx = (this.target.x + this.target.width / 2) - centerX;
+                if (dx > 0) {
+                    flipX = -1; // Assuming the default sprite faces left-ish, flip it to face right
+                }
+            }
+
+            ctx.save();
+            ctx.translate(isoX, isoY);
+            ctx.scale(flipX, 1);
+
+            this.sprite.render(ctx, 0, 0, 90, 120);
+            ctx.restore();
         } else {
             // Base of the turret maps to team/owner color
             ctx.fillStyle = this.color;
@@ -118,9 +149,16 @@ export class Turret extends GameObject {
 
         // Health text
         ctx.fillStyle = '#fff';
-        ctx.font = '12px "Trebuchet MS", sans-serif';
+        ctx.font = 'bold 13px "Trebuchet MS", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`HP: ${Math.floor(this.health)} / ${CONFIG.GADGETS.TURRET.health}`, x, y - floatOffsetY - 10); // Above the bar
+        const textStr = `HP: ${Math.floor(this.health)} / ${CONFIG.GADGETS.TURRET.health}`;
+        const textY = y - floatOffsetY - 10;
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000';
+        ctx.strokeText(textStr, x, textY);
+        ctx.fillText(textStr, x, textY);
+
         ctx.restore();
     }
 

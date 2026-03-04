@@ -1,4 +1,6 @@
 import type { PlayerInput } from './input';
+import type { Player } from '../entities/Player';
+import { CONFIG } from '../config/constants';
 
 interface TouchJoy {
     identifier: number | null;
@@ -22,6 +24,11 @@ export class TouchInputManager {
     private superPressed: boolean = false;
     private gadgetPressed: boolean = false;
     private autoAimBurst: boolean = false;
+    private aimReleasedBurst: boolean = false;
+    private lastAimVec: { x: number, y: number } = { x: 0, y: 0 };
+
+    private superTouchId: number | null = null;
+    private gadgetTouchId: number | null = null;
 
     // Define touch zones
     private superCenter = { x: 0, y: 0, radius: 40 };
@@ -78,10 +85,12 @@ export class TouchInputManager {
 
             // Check specific buttons first
             if (this.checkButtonHit(px, py, this.superCenter)) {
+                this.superTouchId = touch.identifier;
                 this.superPressed = true;
                 continue;
             }
             if (this.checkButtonHit(px, py, this.gadgetCenter)) {
+                this.gadgetTouchId = touch.identifier;
                 this.gadgetPressed = true;
                 continue;
             }
@@ -130,9 +139,8 @@ export class TouchInputManager {
 
     private handleTouchEnd(e: TouchEvent) {
         e.preventDefault();
-        // Reset buttons on any touch end (simple approach)
-        this.superPressed = false;
-        this.gadgetPressed = false;
+        // Since players can tap very quickly between frames, we CANNOT unset superPressed
+        // here, otherwise the game engine entirely misses the click! It will be unset inside getTouchInput().
 
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
@@ -147,12 +155,21 @@ export class TouchInputManager {
 
                 if (dist < 20 && time < 200) {
                     this.autoAimBurst = true;
-                    // Auto-clear the flag after 100ms
-                    setTimeout(() => { this.autoAimBurst = false; }, 100);
+                } else if (dist >= 20) {
+                    // Released an aimed shot outside the cancel deadzone
+                    this.aimReleasedBurst = true;
+                    this.lastAimVec = this.calculateVector(this.rightJoy);
                 }
 
                 this.rightJoy.active = false;
                 this.rightJoy.identifier = null;
+            }
+
+            if (this.superTouchId === touch.identifier) {
+                this.superTouchId = null;
+            }
+            if (this.gadgetTouchId === touch.identifier) {
+                this.gadgetTouchId = null;
             }
         }
     }
@@ -174,10 +191,26 @@ export class TouchInputManager {
 
     public getTouchInput(): Partial<PlayerInput> {
         const moveVec = this.calculateVector(this.leftJoy);
-        const aimVec = this.calculateVector(this.rightJoy);
+        let aimVec = this.calculateVector(this.rightJoy);
 
-        const isAiming = this.rightJoy.active && Math.hypot(aimVec.x, aimVec.y) > 0.2;
-        const isFiring = isAiming || this.autoAimBurst;
+        let isAiming = this.rightJoy.active && Math.hypot(aimVec.x, aimVec.y) > 0.2;
+
+        if (this.aimReleasedBurst) {
+            aimVec = this.lastAimVec;
+            isAiming = true; // Force vector transmission this frame
+        }
+
+        const isFiring = this.autoAimBurst || this.aimReleasedBurst;
+
+        // Cache the button states for this exact frame read
+        const superP = this.superPressed;
+        const gadgetP = this.gadgetPressed;
+
+        // Immediately unlatch the fast-tap inputs so they don't trigger across multiple frames
+        this.superPressed = false;
+        this.gadgetPressed = false;
+        this.autoAimBurst = false;
+        this.aimReleasedBurst = false;
 
         return {
             moveX: moveVec.x,
@@ -185,18 +218,15 @@ export class TouchInputManager {
             aimX: isAiming ? aimVec.x : 0,
             aimY: isAiming ? aimVec.y : 0,
             fire: isFiring,
-            superBtn: this.superPressed,
-            gadgetBtn: this.gadgetPressed,
+            superBtn: superP,
+            gadgetBtn: gadgetP,
             // We simulate bumper presses by tapping specific zones in WeaponSelect if needed
             connected: true
         };
     }
 
-    public isAutoAimTap(): boolean {
-        return this.autoAimBurst && !this.rightJoy.active;
-    }
 
-    public render(ctx: CanvasRenderingContext2D) {
+    public render(ctx: CanvasRenderingContext2D, player?: Player) {
         // Render left joystick (Blue)
         if (this.leftJoy.active) {
             ctx.save();
@@ -233,20 +263,41 @@ export class TouchInputManager {
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 16px sans-serif';
 
+        let superReady = false;
+        let gadgetReady = false;
+        if (player) {
+            superReady = player.superHits >= CONFIG.SUPER_HITS_REQUIRED || player.superActive;
+            gadgetReady = player.gadgetCooldownTimer <= 0;
+        }
+
         // Super
+        const superVis = this.superTouchId !== null;
         ctx.beginPath();
         ctx.arc(this.superCenter.x, this.superCenter.y, this.superCenter.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.superPressed ? 'rgba(241, 196, 15, 0.8)' : 'rgba(241, 196, 15, 0.4)';
+        const superAlpha = superVis ? 1.0 : (superReady ? 0.7 : 0.2);
+        ctx.fillStyle = `rgba(241, 196, 15, ${superAlpha})`;
         ctx.fill();
-        ctx.fillStyle = '#fff';
+        if (superVis) {
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+        }
+        ctx.fillStyle = `rgba(255, 255, 255, ${superVis || superReady ? 1.0 : 0.4})`;
         ctx.fillText('SUPER', this.superCenter.x, this.superCenter.y);
 
         // Gadget
+        const gadgetVis = this.gadgetTouchId !== null;
         ctx.beginPath();
         ctx.arc(this.gadgetCenter.x, this.gadgetCenter.y, this.gadgetCenter.radius, 0, Math.PI * 2);
-        ctx.fillStyle = this.gadgetPressed ? 'rgba(46, 204, 113, 0.8)' : 'rgba(46, 204, 113, 0.4)';
+        const gadgetAlpha = gadgetVis ? 1.0 : (gadgetReady ? 0.7 : 0.2);
+        ctx.fillStyle = `rgba(46, 204, 113, ${gadgetAlpha})`;
         ctx.fill();
-        ctx.fillStyle = '#fff';
+        if (gadgetVis) {
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+        }
+        ctx.fillStyle = `rgba(255, 255, 255, ${gadgetVis || gadgetReady ? 1.0 : 0.4})`;
         ctx.fillText('GADGET', this.gadgetCenter.x, this.gadgetCenter.y);
 
         ctx.restore();

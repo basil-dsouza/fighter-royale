@@ -316,15 +316,28 @@ export class Player extends GameObject {
         return false;
     }
 
-    private getClosestEnemy(entities?: GameObject[]): Player | null {
+    private getClosestEnemy(entities?: GameObject[]): GameObject | null {
         if (!entities) return null;
-        let closest: Player | null = null;
+        let closest: GameObject | null = null;
         let minDist = Infinity;
         for (const e of entities) {
-            if (e instanceof Player && !e.isDead && e !== this) {
+            if (e === this || e.isDead || (e as any).isSolid) continue;
+
+            let isTargetable = false;
+
+            if (e instanceof Player) {
                 if (this.teamId !== -1 && e.teamId === this.teamId) continue;
                 if (e.isHidden) continue;
+                isTargetable = true;
+            } else if (e.constructor.name === 'Turret' || e.constructor.name === 'HealStation' || e.constructor.name === 'ProximityMine') {
+                if (this.teamId !== -1 && (e as any).teamId === this.teamId) continue;
+                if ((e as any).ownerId === this.id) continue;
+                isTargetable = true;
+            } else if (e.constructor.name === 'PowerBox') {
+                isTargetable = true;
+            }
 
+            if (isTargetable) {
                 const dist = Math.hypot(e.x - this.x, e.y - this.y);
                 if (dist < minDist) {
                     minDist = dist;

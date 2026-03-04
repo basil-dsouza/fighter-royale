@@ -118,13 +118,13 @@ export class MapManager {
 
         // 2. Random Obstacles
         // Let's create a few clusters of walls, water, and bushes
-        const numClusters = 10;
+        const numClusters = 18;
         for (let i = 0; i < numClusters; i++) {
             const cx = Math.floor(Math.random() * (this.width - 10)) + 5;
             const cy = Math.floor(Math.random() * (this.height - 10)) + 5;
 
             const type = Math.random();
-            const clusterSize = Math.floor(Math.random() * 4) + 2;
+            const clusterSize = Math.floor(Math.random() * 5) + 3; // Slightly larger clusters
 
             for (let j = 0; j < clusterSize; j++) {
                 const ox = cx + Math.floor(Math.random() * 3) - 1;
@@ -137,9 +137,9 @@ export class MapManager {
                 const blockX = ox * CONFIG.BLOCK_SIZE;
                 const blockY = oy * CONFIG.BLOCK_SIZE;
 
-                if (type < 0.33) {
+                if (type < 0.40) { // Slight bias towards walls
                     obs.push(new Wall(blockX, blockY));
-                } else if (type < 0.66) {
+                } else if (type < 0.70) {
                     obs.push(new Water(blockX, blockY));
                 } else {
                     obs.push(new Bush(blockX, blockY));

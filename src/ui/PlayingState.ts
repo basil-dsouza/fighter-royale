@@ -9,6 +9,7 @@ import { Bullet } from '../entities/Bullet';
 import { Turret } from '../entities/Turret';
 import { ProximityMine } from '../entities/ProximityMine';
 import { PowerBox } from '../entities/PowerBox';
+import { HealStation } from '../entities/HealStation';
 import { MapManager } from '../levels/MapManager';
 import { BotController } from '../entities/BotController';
 import { TouchInputManager } from '../engine/TouchInputManager';
@@ -76,7 +77,12 @@ export class PlayingState implements GameState {
             // Link camera to player (only human players get cameras)
             if (!isBot) {
                 const cam = this.splitScreen.getCamera(i);
-                if (cam) cam.setTarget(p);
+                if (cam) {
+                    cam.setTarget(p);
+                    if (this.game.isPhoneMode) {
+                        cam.zoom = 0.55;
+                    }
+                }
             }
         }
 
@@ -170,6 +176,10 @@ export class PlayingState implements GameState {
         } else if (player.gadgetType === 'PROXIMITY_MINE') {
             const m = new ProximityMine(player.x, player.y, player.id, player.teamId, player.color, this.handleMineDetonate.bind(this));
             this.entities.push(m);
+        } else if (player.gadgetType === 'HEAL_STATION') {
+            // Need to import HealStation at top if not there
+            const h = new HealStation(player.x, player.y, player.id, player.teamId, player.color);
+            this.entities.push(h);
         }
     }
 
@@ -207,8 +217,8 @@ export class PlayingState implements GameState {
 
             if (current instanceof Player) {
                 current.update(dt, this.entities);
-            } else if (current instanceof Turret || current instanceof ProximityMine) {
-                current.update(dt, this.players);
+            } else if (current instanceof Turret || current instanceof ProximityMine || current instanceof HealStation) {
+                current.update(dt, this.entities);
             } else {
                 current.update(dt);
             }
@@ -360,8 +370,8 @@ export class PlayingState implements GameState {
             });
 
         // Overlay the Phone Mode touch UI directly onto the final composition canvas
-        if (this.game.isPhoneMode) {
-            TouchInputManager.getInstance().render(ctx);
+        if (this.game.isPhoneMode && this.players[0]) {
+            TouchInputManager.getInstance().render(ctx, this.players[0]);
         }
     }
 

@@ -52,6 +52,19 @@ export class MainMenuState implements GameState {
                 this._game.changeState(new module.WeaponSelectState(this._game));
             });
         }
+
+        // Fullscreen Toggle Icon
+        const fsX = cw - 60;
+        const fsY = 20;
+        if (px >= fsX && px <= fsX + 40 && py >= fsY && py <= fsY + 40) {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch((err: any) => {
+                    console.error("Error attempting to enable fullscreen:", err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
     }
 
     update(_dt: number): void {
@@ -89,6 +102,10 @@ export class MainMenuState implements GameState {
 
         ctx.fillText('FIGHTER ROYALE', cw / 2, ch / 3);
 
+        ctx.fillStyle = '#f39c12'; // Gold/orange
+        ctx.font = 'italic 32px "Brush Script MT", "Comic Sans MS", cursive';
+        ctx.fillText('Made by Raphael Dsouza', cw / 2, ch / 3 + 45);
+
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '24px "Trebuchet MS", sans-serif';
 
@@ -109,6 +126,20 @@ export class MainMenuState implements GameState {
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 20px "Trebuchet MS", sans-serif';
         ctx.fillText('Tap for Phone Mode (1v3)', cw / 2, by);
+
+        // Fullscreen Toggle Icon
+        const fsX = cw - 60;
+        const fsY = 20;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(fsX, fsY, 40, 40);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(fsX + 5, fsY + 15); ctx.lineTo(fsX + 5, fsY + 5); ctx.lineTo(fsX + 15, fsY + 5);
+        ctx.moveTo(fsX + 35, fsY + 15); ctx.lineTo(fsX + 35, fsY + 5); ctx.lineTo(fsX + 25, fsY + 5);
+        ctx.moveTo(fsX + 5, fsY + 25); ctx.lineTo(fsX + 5, fsY + 35); ctx.lineTo(fsX + 15, fsY + 35);
+        ctx.moveTo(fsX + 35, fsY + 25); ctx.lineTo(fsX + 35, fsY + 35); ctx.lineTo(fsX + 25, fsY + 35);
+        ctx.stroke();
     }
 
     exit(): void {

@@ -2,7 +2,7 @@ import { GameObject } from './GameObject';
 import { Player } from './Player';
 import { Turret } from './Turret';
 import { PowerBox } from './PowerBox';
-import { InputManager } from '../engine/input';
+import { InputManager, type PlayerInput } from '../engine/input';
 import { IsoUtils } from '../engine/iso';
 
 export class BotController {
@@ -18,17 +18,16 @@ export class BotController {
     }
 
     update(dt: number, entities: GameObject[]) {
-        const input = InputManager.getInstance().getInputState(this.player.playerIndex);
-
-        // Pretend gamepad is connected
-        input.connected = true;
-        input.moveX = 0;
-        input.moveY = 0;
-        input.aimX = 0;
-        input.aimY = 0;
-        input.fire = false;
-        input.superBtn = false;
-        input.gadgetBtn = false;
+        const input: Partial<PlayerInput> = {
+            connected: true,
+            moveX: 0,
+            moveY: 0,
+            aimX: 0,
+            aimY: 0,
+            fire: false,
+            superBtn: false,
+            gadgetBtn: false
+        };
 
         // Death check
         if (this.player.isDead) return;
@@ -183,5 +182,8 @@ export class BotController {
                 this.targetWaypoint = null; // Reached
             }
         }
+
+        // Apply calculated input to the global input manager so the player entity consumes it correctly
+        InputManager.getInstance().setBotInput(this.player.playerIndex, input);
     }
 }

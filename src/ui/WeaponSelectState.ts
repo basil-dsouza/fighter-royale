@@ -52,21 +52,21 @@ export class WeaponSelectState implements GameState {
         const pCenterX = slotWidth / 2;
 
         if (px >= 0 && px <= slotWidth && this.inputDelay <= 0) {
-            // Weapon toggle: Y around ch/2
-            if (py > ch / 2 - 60 && py < ch / 2 + 30) {
-                if (px < pCenterX) this.selections[0] = (this.selections[0] - 1 + this.weaponKeys.length) % this.weaponKeys.length;
-                else this.selections[0] = (this.selections[0] + 1) % this.weaponKeys.length;
-            }
-            // Gadget toggle: Y around ch/2 + 90
-            else if (py > ch / 2 + 60 && py < ch / 2 + 130) {
-                if (px < pCenterX) this.gadgetSelections[0] = (this.gadgetSelections[0] - 1 + this.gadgetKeys.length) % this.gadgetKeys.length;
-                else this.gadgetSelections[0] = (this.gadgetSelections[0] + 1) % this.gadgetKeys.length;
-            }
-            // Lock in: Bottom of screen
-            else if (py > ch - 100) {
+            // Lock in: Bottom of screen (check first so gadget toggle doesn't steal touches on short screens)
+            if (py > ch - 80) {
                 this.ready[0] = true;
                 this.game.playerWeapons[0] = this.weaponKeys[this.selections[0]];
                 this.game.playerGadgets[0] = this.gadgetKeys[this.gadgetSelections[0]];
+            }
+            // Weapon toggle: Y around ch/2
+            else if (py > ch / 2 - 80 && py < ch / 2 + 40) {
+                if (px < pCenterX) this.selections[0] = (this.selections[0] - 1 + this.weaponKeys.length) % this.weaponKeys.length;
+                else this.selections[0] = (this.selections[0] + 1) % this.weaponKeys.length;
+            }
+            // Gadget toggle: below weapon toggle but above lock in
+            else if (py >= ch / 2 + 30 && py <= ch - 80) {
+                if (px < pCenterX) this.gadgetSelections[0] = (this.gadgetSelections[0] - 1 + this.gadgetKeys.length) % this.gadgetKeys.length;
+                else this.gadgetSelections[0] = (this.gadgetSelections[0] + 1) % this.gadgetKeys.length;
             }
         }
     }
@@ -182,13 +182,15 @@ export class WeaponSelectState implements GameState {
             const centerX = startX + slotWidth / 2;
 
             ctx.fillStyle = i % 2 === 0 ? '#16213E' : '#0F3460';
-            ctx.fillRect(startX, 100, slotWidth, ch - 100);
+            ctx.fillRect(startX, 80, slotWidth, ch - 80);
 
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = '24px "Trebuchet MS", sans-serif';
-            ctx.textAlign = 'center';
-            const label = i < this.game.numPlayers ? `Player ${i + 1}` : `Bot ${i - this.game.numPlayers + 1}`;
-            ctx.fillText(label, centerX, 150);
+            if (!this.game.isPhoneMode) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '24px "Trebuchet MS", sans-serif';
+                ctx.textAlign = 'center';
+                const label = i < this.game.numPlayers ? `Player ${i + 1}` : `Bot ${i - this.game.numPlayers + 1}`;
+                ctx.fillText(label, centerX, 120);
+            }
 
             if (this.ready[i]) {
                 ctx.fillStyle = '#2ecc71';
@@ -203,18 +205,18 @@ export class WeaponSelectState implements GameState {
             } else {
                 ctx.fillStyle = '#E94560';
                 ctx.font = 'bold 32px "Trebuchet MS", sans-serif';
-                ctx.fillText(`< ${this.weaponKeys[this.selections[i]]} >`, centerX, ch / 2 - 30);
+                ctx.fillText(`< ${this.weaponKeys[this.selections[i]]} >`, centerX, ch / 2 - 40);
 
                 const wpn = CONFIG.WEAPONS[this.weaponKeys[this.selections[i]] as keyof typeof CONFIG.WEAPONS];
                 ctx.font = '18px "Trebuchet MS", sans-serif';
                 ctx.fillStyle = '#bdc3c7';
-                ctx.fillText(`Damage: ${wpn.damage}`, centerX, ch / 2 + 10);
-                ctx.fillText(`Reload: ${wpn.reloadSecs}s`, centerX, ch / 2 + 40);
+                ctx.fillText(`Damage: ${wpn.damage}`, centerX, ch / 2);
+                ctx.fillText(`Reload: ${wpn.reloadSecs}s`, centerX, ch / 2 + 30);
 
                 ctx.fillStyle = '#f1c40f'; // Gold
                 ctx.font = 'bold 20px "Trebuchet MS", sans-serif';
                 const gadgetLabel = this.game.isPhoneMode ? `< Gadget: ${this.gadgetKeys[this.gadgetSelections[i]]} >` : `[LB] < Gadget: ${this.gadgetKeys[this.gadgetSelections[i]]} > [RB]`;
-                ctx.fillText(gadgetLabel, centerX, ch / 2 + 90);
+                ctx.fillText(gadgetLabel, centerX, ch / 2 + 65);
 
                 if (this.game.gameMode === 'TEAM') {
                     ctx.font = '20px "Trebuchet MS", sans-serif';

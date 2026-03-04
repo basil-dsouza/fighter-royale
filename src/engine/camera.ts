@@ -10,6 +10,9 @@ export class Camera {
     public screenX: number = 0;
     public screenY: number = 0;
 
+    // Coordinate space zoom scale
+    public zoom: number = 1.0;
+
     // Follow target (uses logical Cartesian coordinates)
     public target: { x: number; y: number } | null = null;
 
@@ -33,9 +36,9 @@ export class Camera {
             const isoX = this.target.x - this.target.y;
             const isoY = (this.target.x + this.target.y) / 2;
 
-            // Center the camera on the target's translated screen position
-            this.x = isoX - this.width / 2;
-            this.y = isoY - this.height / 2;
+            // Center the camera on the target's translated screen position, adjusted for mathematical projection scale
+            this.x = isoX - (this.width / this.zoom) / 2;
+            this.y = isoY - (this.height / this.zoom) / 2;
         }
     }
 
@@ -49,7 +52,9 @@ export class Camera {
         ctx.clip();
 
         // Translate such that (0,0) in logical world space draws correctly on screen
-        ctx.translate(this.screenX - this.x, this.screenY - this.y);
+        ctx.translate(this.screenX, this.screenY);
+        ctx.scale(this.zoom, this.zoom);
+        ctx.translate(-this.x, -this.y);
     }
 
     // Restore the context back to full screen drawing

@@ -26,13 +26,13 @@ export class ProximityMine extends GameObject {
         this.sprite = new SpriteManager('/assets/mine.png', 1);
     }
 
-    update(_dt: number, players: Player[]): void {
+    update(_dt: number, entities: GameObject[]): void {
         if (this.hasDetonated || this.isDead) return;
 
         const triggerRadius = CONFIG.GADGETS.PROXIMITY_MINE.triggerRadiusBlocks * CONFIG.BLOCK_SIZE;
 
-        for (const p of players) {
-            if (p.isDead) continue;
+        for (const p of entities) {
+            if (!(p instanceof Player) || p.isDead) continue;
 
             const isEnemy = this.teamId === -1 ? p.id !== this.ownerId : p.teamId !== this.teamId;
 
