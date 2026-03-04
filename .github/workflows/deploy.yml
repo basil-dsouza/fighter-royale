@@ -42,14 +42,19 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Prepare Sub-Directory
+        run: |
+          mkdir -p ./_site/fighter-royale
+          mv ./dist/* ./_site/fighter-royale/
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire dist repository
-          path: './dist'
+          # Upload nested directory so it resolves on custom domain at /fighter-royale/
+          path: './_site'
           
       - name: Deploy to GitHub Pages
         id: deployment

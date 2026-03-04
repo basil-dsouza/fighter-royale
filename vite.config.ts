@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    // The base path should match your GitHub repository name exactly to ensure
-    // static assets like /assets/player.png resolve natively on the git sub-path url.
+    // When using a custom domain (e.g. raphael.dsouza-family.com), the base path should be '/'
+    // Enforcing sub-path deployment for custom domain
     base: '/fighter-royale/',
 });
